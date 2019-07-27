@@ -1,0 +1,6 @@
+﻿  Stitching360.cpp
+d:\code\360stitching\src\stitching360.cpp(122): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+d:\code\360stitching\src\stitching360.cpp(150): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+d:\code\360stitching\src\stitching360.cpp(151): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+  360Stitching.vcxproj -> D:\code\360Stitching\platforms\vs2015\x64\Debug\360Stitching.dll
+  360Stitching.vcxproj -> D:\code\360Stitching\platforms\vs2015\x64\Debug\360Stitching.pdb (Full PDB)

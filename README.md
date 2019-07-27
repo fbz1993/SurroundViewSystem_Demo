@@ -23,4 +23,4 @@ It is a surround view system based on fisheye camera.
 
 
 3. stitching
-<img src="combine.png" width="200" />
+<img src="img/combine.png" width="200" />

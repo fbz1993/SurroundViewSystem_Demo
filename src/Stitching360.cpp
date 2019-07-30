@@ -29,6 +29,7 @@ private:
     int findCorners();
     int cameraCalibrate(int count);
     int savePara();
+    void OnMouseAction(int event, int x, int y, int flags, void *para);
 
 
 public:
@@ -42,7 +43,8 @@ public:
     virtual cv::Mat PerspectiveTransform(cv::InputArray aInput, cv::Point2f *pSrcPoints, cv::Point2f *pDstPoints, cv::Size sOutputSize, int nOrientation);
 
     /*************************图像拼接**********************************/
-    virtual cv::Mat ImageStitching(cv::Mat aInputLeft, cv::Mat aInputRight, cv::Mat aInputFront, cv::Mat aInputBack);
+    virtual cv::Mat ImageStitching(int nWidth, int nHeight, cv::Mat aInputLeft, cv::Mat aInputRight, cv::Mat aInputFront, cv::Mat aInputBack,
+        std::vector<cv::Point> vPtsInputLeft, std::vector<cv::Point> vPtsInputRight, std::vector<cv::Point> vPtsInputFront, std::vector<cv::Point> vPtsInputBack);
 
 };
 
@@ -227,7 +229,8 @@ cv::Mat Stitching360::PerspectiveTransform(cv::InputArray aInput, cv::Point2f *p
     return mPerspectiveImg;
 }
 
-cv::Mat Stitching360::ImageStitching(cv::Mat mInputLeft, cv::Mat mInputRight, cv::Mat mInputFront, cv::Mat mInputBack)
+cv::Mat Stitching360::ImageStitching(int nWidth, int nHeight, cv::Mat mInputLeft, cv::Mat mInputRight, cv::Mat mInputFront, cv::Mat mInputBack,
+    std::vector<cv::Point> vPtsLeft, std::vector<cv::Point> vPtsRight, std::vector<cv::Point> vPtsFront, std::vector<cv::Point> vPtsBack)
 {
     cv::Mat mCombine = cv::Mat::zeros(1600, 1600, mInputRight.type());
     cv::Mat mRoiInputRight = cv::Mat::zeros(mInputRight.size(), CV_8U);
@@ -235,59 +238,115 @@ cv::Mat Stitching360::ImageStitching(cv::Mat mInputLeft, cv::Mat mInputRight, cv
     cv::Mat mRoiInputFront = cv::Mat::zeros(mInputFront.size(), CV_8U);
     cv::Mat mRoiInputBack = cv::Mat::zeros(mInputBack.size(), CV_8U);
 
+    std::vector<cv::Point> vStitchFront;
+    std::vector<cv::Point> vStitchBack;
+
     std::vector<std::vector<cv::Point>> vContourInputRight;
-    std::vector<cv::Point> vPtsInputRight;
     std::vector<std::vector<cv::Point>> vContourInputLeft;
-    std::vector<cv::Point> vPtsInputLeft;
     std::vector<std::vector<cv::Point>> vContourInputFront;
-    std::vector<cv::Point> vPtsInputFront;
     std::vector<std::vector<cv::Point>> vContourInputBack;
-    std::vector<cv::Point> vPtsInputBack;
 
-    vPtsInputRight.push_back(cv::Point(432, 1080));
-    vPtsInputRight.push_back(cv::Point(0, 648));
-    vPtsInputRight.push_back(cv::Point(0, 0));
-    vPtsInputRight.push_back(cv::Point(500, 0));
-    vPtsInputRight.push_back(cv::Point(500, 1080));
-    vContourInputRight.push_back(vPtsInputRight);
-    drawContours(mRoiInputRight, vContourInputRight, 0, cv::Scalar::all(255), -1);
-    cv::Mat mImgRoiInputRight = mCombine(cv::Rect(1000, 100, 500, 1080));
+    cv::Mat mImgRoiInputFront;
+    cv::Mat mImgRoiInputBack;
+    cv::Mat mImgRoiInputLeft;
+    cv::Mat mImgRoiInputRight;
 
-    vPtsInputLeft.push_back(cv::Point(500, 765 + 397 - 500));
-    vPtsInputLeft.push_back(cv::Point(0, 765+397));
-    vPtsInputLeft.push_back(cv::Point(0, 1080));
-    vPtsInputLeft.push_back(cv::Point(0, 0));
-    vPtsInputLeft.push_back(cv::Point(500, 0));
-    vContourInputLeft.push_back(vPtsInputLeft);
-    drawContours(mRoiInputLeft, vContourInputLeft, 0, cv::Scalar::all(255), -1);
-    cv::Mat mImgRoiInputLeft = mCombine(cv::Rect(266, 84, 500, 1080));
-    
-    vPtsInputBack.push_back(cv::Point(560, 0));
-    vPtsInputBack.push_back(cv::Point(1060, 500));
-    vPtsInputBack.push_back(cv::Point(1080, 500));
-    vPtsInputBack.push_back(cv::Point(0, 500));
-    vPtsInputBack.push_back(cv::Point(0, 0));
-    vContourInputBack.push_back(vPtsInputBack);
+    /***********************************切割**************************************************/
+    // front切割
+    vStitchFront.push_back(cv::Point(vPtsFront.at(1).x - nHeight + vPtsFront.at(1).y, nHeight));
+    vStitchFront.push_back(cv::Point(vPtsFront.at(0).x + nHeight - vPtsFront.at(0).y, nHeight));
+    if (vPtsFront.at(0).x > vPtsFront.at(0).y)
+    {
+        vStitchFront.push_back(cv::Point(vPtsFront.at(0).x - vPtsFront.at(0).y, 0));
+    }
+    else
+    {
+        vStitchFront.push_back(cv::Point(0, vPtsFront.at(0).y - vPtsFront.at(0).x));
+        vStitchFront.push_back(cv::Point(0, 0));
+    }
+    if (nWidth - vPtsFront.at(1).x > vPtsFront.at(1).y)
+    {
+        vStitchFront.push_back(cv::Point(vPtsFront.at(1).x + vPtsFront.at(0).y, 0));
+    }
+    else
+    {
+        vStitchFront.push_back(cv::Point(nWidth, 0));
+        vStitchFront.push_back(cv::Point(nWidth, vPtsFront.at(1).y - nWidth + vPtsFront.at(1).x));
+    }
+
+    // back切割
+    vStitchBack.push_back(cv::Point(vPtsBack.at(1).x - vPtsBack.at(1).y, 0));
+    vStitchBack.push_back(cv::Point(vPtsBack.at(0).x + vPtsBack.at(0).y, 0));
+    if (nHeight - vPtsBack.at(0).y < vPtsBack.at(0).x)
+    {
+        vStitchBack.push_back(cv::Point(vPtsBack.at(0).x - nHeight + vPtsBack.at(0).y, nHeight));
+    }
+    else
+    {
+        vStitchBack.push_back(cv::Point(0, vPtsBack.at(0).x + vPtsBack.at(0).y));
+        vStitchBack.push_back(cv::Point(0, nHeight));
+    }
+    if (nWidth - vPtsBack.at(1).x > vPtsBack.at(1).y)
+    {
+        vStitchBack.push_back(cv::Point(vPtsBack.at(1).x + nHeight - vPtsBack.at(1).y, nHeight));
+    }
+    else
+    {
+        vStitchBack.push_back(cv::Point(nWidth, nHeight));
+        vStitchBack.push_back(cv::Point(nWidth, vPtsBack.at(1).y - nWidth + vPtsBack.at(1).x));
+    }
+
+
+    /*****************************计算边缘************************************/
+    int nDiffFL_x = vPtsLeft.at(0).x - vPtsFront.at(0).x;
+    int nDiffBL_x = vPtsLeft.at(1).x - vPtsBack.at(0).x;
+    if (nDiffFL_x < nDiffBL_x)
+    {
+        if (nDiffFL_x <= 0)
+        {
+            mImgRoiInputFront = mCombine(cv::Rect(0, 0, nWidth, nHeight));
+            mImgRoiInputLeft = mCombine(cv::Rect(-nDiffFL_x, vPtsFront.at(0).y - vPtsLeft.at(0).y, nHeight, nWidth));
+            mImgRoiInputBack = mCombine(cv::Rect(-nDiffFL_x + nDiffBL_x, vPtsFront.at(0).y + vPtsLeft.at(1).y - vPtsLeft.at(0).y - vPtsBack.at(0).y, nWidth, nHeight));
+            mImgRoiInputRight = mCombine(cv::Rect(vPtsLeft.at(0).x + vPtsFront.at(1).x - vPtsFront.at(0).x - vPtsRight.at(0).x - nDiffFL_x, vPtsFront.at(1).y - vPtsRight.at(0).y, nHeight, nWidth));
+        }
+        else
+        {
+            mImgRoiInputFront = mCombine(cv::Rect(nDiffFL_x, 0, nWidth, nHeight));
+            mImgRoiInputLeft = mCombine(cv::Rect(0, vPtsLeft.at(0).y - vPtsFront.at(0).y, nHeight, nWidth));
+            mImgRoiInputBack = mCombine(cv::Rect(nDiffBL_x, vPtsFront.at(0).y + vPtsLeft.at(1).y - vPtsLeft.at(0).y - vPtsBack.at(0).y, nWidth, nHeight));
+            mImgRoiInputRight = mCombine(cv::Rect(vPtsLeft.at(0).x + vPtsFront.at(1).x - vPtsFront.at(0).x - vPtsRight.at(0).x, vPtsFront.at(1).y - vPtsRight.at(0).y, nHeight, nWidth));
+        }
+    }
+    else
+    {
+        if (nDiffBL_x <= 0)
+        {
+            mImgRoiInputFront = mCombine(cv::Rect(-nDiffBL_x + nDiffFL_x, 0, nWidth, nHeight));
+            mImgRoiInputLeft = mCombine(cv::Rect(-nDiffBL_x, vPtsFront.at(0).y - vPtsLeft.at(0).y, nHeight, nWidth));
+            mImgRoiInputBack = mCombine(cv::Rect(0, vPtsFront.at(0).y + vPtsLeft.at(1).y - vPtsLeft.at(0).y - vPtsBack.at(0).y, nWidth, nHeight));
+            mImgRoiInputRight = mCombine(cv::Rect(vPtsLeft.at(0).x + vPtsFront.at(1).x - vPtsFront.at(0).x - vPtsRight.at(0).x - nDiffBL_x, vPtsFront.at(1).y - vPtsRight.at(0).y, nHeight, nWidth));
+        }
+        else
+        {
+            mImgRoiInputFront = mCombine(cv::Rect(nDiffFL_x, 0, nWidth, nHeight));
+            mImgRoiInputLeft = mCombine(cv::Rect(0, vPtsLeft.at(0).y - vPtsFront.at(0).y, nHeight, nWidth));
+            mImgRoiInputBack = mCombine(cv::Rect(nDiffBL_x, vPtsFront.at(0).y + vPtsLeft.at(1).y - vPtsLeft.at(0).y - vPtsBack.at(0).y, nWidth, nHeight));
+            mImgRoiInputRight = mCombine(cv::Rect(vPtsLeft.at(0).x + vPtsFront.at(1).x - vPtsFront.at(0).x - vPtsRight.at(0).x, vPtsFront.at(1).y - vPtsRight.at(0).y, nHeight, nWidth));
+        }
+    }
+
+    vContourInputBack.push_back(vStitchBack);
     drawContours(mRoiInputBack, vContourInputBack, 0, cv::Scalar::all(255), -1);
-    cv::Mat mImgRoiInputBack = mCombine(cv::Rect(440, 747, 1080, 500));
 
-    vPtsInputFront.push_back(cv::Point(423-396, 0));
-    vPtsInputFront.push_back(cv::Point(1080, 0));
-    vPtsInputFront.push_back(cv::Point(1080, 397 - 1080 + 857 ));
-    vPtsInputFront.push_back(cv::Point(857 - 500 + 397, 500));
-    vPtsInputFront.push_back(cv::Point(423 + 500 - 396, 500));
-    vContourInputFront.push_back(vPtsInputFront);
+    vContourInputFront.push_back(vStitchFront);
     drawContours(mRoiInputFront, vContourInputFront, 0, cv::Scalar::all(255), -1);
-    cv::Mat mImgRoiInputFront = mCombine(cv::Rect(665-423, 413-396, 1080, 500));
     
-    // 以下这个顺序不能变.因为right,back,left都只切了一条边,直接叠加上去的。
-    // 若left放在back前一步执行，left图像将被back覆盖。
-    mInputRight.copyTo(mImgRoiInputRight, mRoiInputRight);
-    mInputBack.copyTo(mImgRoiInputBack, mRoiInputBack);
-    mInputLeft.copyTo(mImgRoiInputLeft, mRoiInputLeft);
+    // 先放left与right, 因为没有切割. front 与back切割了
+    mInputRight.copyTo(mImgRoiInputRight);
+    mInputLeft.copyTo(mImgRoiInputLeft);
     mInputFront.copyTo(mImgRoiInputFront, mRoiInputFront);
-
-    mCombine = mCombine(cv::Rect(443, 175, 900, 910));
+    mInputBack.copyTo(mImgRoiInputBack, mRoiInputBack);
+    //mCombine = mCombine(cv::Rect(0, 0, 900, 910));
     return mCombine;
 }
 

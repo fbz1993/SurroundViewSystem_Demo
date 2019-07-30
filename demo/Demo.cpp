@@ -8,7 +8,15 @@
 #define left 2
 #define right 3
 
-
+std::vector<cv::Point> vecTemp;
+void OnMouseAction(int event, int x, int y, int flags, void *para)
+{
+    switch (event)
+    {
+    case CV_EVENT_LBUTTONDOWN:
+        vecTemp.push_back(cv::Point2d(x, y));
+    }
+}
 
 int main()
 {
@@ -64,7 +72,6 @@ int main()
         cv::Point2f(200 + 770, 150 + 30)
     };
     cv::Mat mPerspectiveLeft = stitching360->PerspectiveTransform(mDstLeft, pSrcPointsLeft, pDstPointsLeft, cv::Size(1080, 500), left);
-    cv::imshow("left", mPerspectiveLeft);
 
     // 右侧
     cv::Point2f pSrcPointsRight[] =
@@ -83,7 +90,6 @@ int main()
         cv::Point2f(200 + 770, 150 + 30)
     };
     cv::Mat mPerspectiveRight = stitching360->PerspectiveTransform(mDstRight, pSrcPointsRight, mDstPointsRight, cv::Size(1080, 500), right);
-    cv::imshow("right", mPerspectiveRight);
 
     // 前方
     cv::Point2f mSrcPointsFront[] =
@@ -102,7 +108,6 @@ int main()
         cv::Point2f(200 + 770, 150 + 30)
     };
     cv::Mat mPerspectiveFront = stitching360->PerspectiveTransform(mDstFront, mSrcPointsFront, mDstPointsFront, cv::Size(1080, 500), front);
-    cv::imshow("front", mPerspectiveFront);
 
     // 后方
     cv::Point2f pSrcPointsBack[] =
@@ -121,13 +126,73 @@ int main()
         cv::Point2f(200 + 770, 150 + 30)
     };
     cv::Mat mPerspectiveBack = stitching360->PerspectiveTransform(mDstBack, pSrcPointsBack, pDstPointsBack, cv::Size(1080, 500), back);
-    cv::imshow("back", mPerspectiveBack);
 
     /**************************************拼接******************************************************/
+    std::vector<cv::Point> vPstFront;
+    std::vector<cv::Point> vPtsBack;
+    std::vector<cv::Point> vPtsLeft;
+    std::vector<cv::Point> vPtsRight;
 
-    cv::Mat mCombine = stitching360->ImageStitching(mPerspectiveLeft, mPerspectiveRight, mPerspectiveFront, mPerspectiveBack);
+    // front 选点
+    cv::imshow("front", mPerspectiveFront);
+    cv::waitKey(1);
+    while (1)
+    {
+        int key = cv::waitKey(10);
+        cv::setMouseCallback("front", OnMouseAction);
+        if (key == 'q')
+            break;
+    }
+    vPstFront = vecTemp;
+    vecTemp.clear();
+    cv::destroyWindow("front");
+
+    // right选点
+    cv::imshow("right", mPerspectiveRight);
+    cv::waitKey(1);
+    while (1)
+    {
+        int key = cv::waitKey(10);
+        cv::setMouseCallback("right", OnMouseAction);
+        if (key == 'q')
+            break;
+    }
+    vPtsRight = vecTemp;
+    vecTemp.clear();
+    cv::destroyWindow("right");
+
+    // back选点
+    cv::imshow("back", mPerspectiveBack);
+    cv::waitKey(1);
+    while (1)
+    {
+        int key = cv::waitKey(10);
+        cv::setMouseCallback("back", OnMouseAction);
+        if (key == 'q')
+            break;
+    }
+    vPtsBack = vecTemp;
+    vecTemp.clear();
+    cv::destroyWindow("back");
+
+    // left选点
+    cv::imshow("left", mPerspectiveLeft);
+    cv::waitKey(1);
+    while (1)
+    {
+        int key = cv::waitKey(10);
+        cv::setMouseCallback("left", OnMouseAction);
+        if (key == 'q')
+            break;
+    }
+    vPtsLeft = vecTemp;
+    vecTemp.clear();
+    cv::destroyWindow("left");
+
+    cv::Mat mCombine = stitching360->ImageStitching(1080, 500, mPerspectiveLeft, mPerspectiveRight, mPerspectiveFront, mPerspectiveBack, vPtsLeft, vPtsRight, vPstFront, vPtsBack);
     cv::imshow("Combined Image++", mCombine);
     cv::imwrite("combine.png", mCombine);
+    
     cv::waitKey(0);
 }
 
